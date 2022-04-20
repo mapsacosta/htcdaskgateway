@@ -1,4 +1,6 @@
 from .cluster import LPCGatewayCluster 
-from .cluster import LPCGateway 
+from .gateway import LPCGateway 
+
+# @author Maria A. - mapsacosta
 
 __all__ = ["LPCGatewayCluster", "LPCGateway"]
