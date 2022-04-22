@@ -1,38 +1,37 @@
 import asyncio
 import logging
 import os
-import random
-import shutil
 import socket
 import sys
 import pwd
 import tempfile
 import subprocess
 import weakref
-
-import dask
-import yaml
-from dask_jobqueue.htcondor import (
-    quote_arguments,
-    quote_environment,
-)
+import pprint
 
 # @author Maria A. - mapsacosta
  
 from distributed.core import Status
 from dask_gateway import GatewayCluster
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger("lpcdaskgateway.GatewayCluster")
 
 class LPCGatewayCluster(GatewayCluster):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        logger.info(self.name)
+        logger.info(" Created cluster: " + self.name)
 
     # We only want to override what's strictly necessary, scaling and adapting are the most important ones
+        
+    async def _stop_async(self):
+        if self.batchWorkerJobs:
+            self.destroy_all_batch_clusters()
+        await super()._stop_async()
 
+        self.status = "closed"
+    
     def scale(self, n, **kwargs):
         """Scale the cluster to ``n`` workers.
         Parameters
@@ -40,18 +39,25 @@ class LPCGatewayCluster(GatewayCluster):
         n : int
             The number of workers to scale to.
         """
-        print("Hello, I am the interrupted scale method")
-        print("I have two functions:")
-        print("1. Communicate to the Gateway server the new cluster state")
-        print("2. Call the scale_cluster method on my LPCGateway")
-        print("In the future, I will allow for Kubernetes workers as well")
-        self.batchWorkerJobs = []
-        self.kubeWorkerJobs = []
+        #print("Hello, I am the interrupted scale method")
+        #print("I have two functions:")
+        #print("1. Communicate to the Gateway server the new cluster state")
+        #print("2. Call the scale_cluster method on my LPCGateway")
+        #print("In the future, I will allow for Kubernetes workers as well"        
+             
         batchWorkers = True
+        kubeWorkers = False
+        
         if batchWorkers:
+            self.batchWorkerJobs = []
+            logger.debug(" Scaling: "+str(n)+" HTCondor workers")
             self.batchWorkerJobs.append(self.scale_batch_workers(n))
+            logger.info(" New Cluster state ")
+            logger.info(self.batchWorkerJobs)
         elif kubeWorkers:
+            self.kubeWorkerJobs = []
             self.kubeWorkerJobs.append(self.scale_kube_workers(n))
+        
         return self.gateway.scale_cluster(self.name, n, **kwargs)
     
     def scale_batch_workers(self, n):
@@ -74,6 +80,20 @@ class LPCGatewayCluster(GatewayCluster):
             f.write(security.tls_key)
         with open(f"{credentials_dir}/api-token", 'w') as f:
             f.write(os.environ['JUPYTERHUB_API_TOKEN'])
+            
+        # Just pick a random Schedd
+        #schedd_ad = coll.locate(htcondor.DaemonTypes.Schedd)
+            
+        #schedd = htcondor.Schedd()
+        #sub = htcondor.Submit({
+        #    "executable": "/bin/sleep",
+        #    "arguments": "5m",
+        #    "hold": "True",
+        #})
+        #submit_result = schedd.submit(sub, count=10)
+        #print(submit_result.cluster())
+        #+FERMIHTC_HTCDaskCluster = """+cluster_name+"""
+        #+FERMIHTC_HTCDaskClusterOwner = """+username+"""
         
         # Prepare JDL
         jdl = """executable = start.sh
@@ -81,8 +101,6 @@ arguments = """+cluster_name+""" htcdask-worker_$(Cluster)_$(Process)
 output = condor/htcdask-worker$(Cluster)_$(Process).out
 error = condor/htcdask-worker$(Cluster)_$(Process).err
 log = condor/htcdask-worker$(Cluster)_$(Process).log
-+FERMIHTC_HTCDaskCluster = """+cluster_name+"""
-+FERMIHTC_HTCDaskClusterOwner = """+username+"""
 request_cpus = 4
 request_memory = 2100
 should_transfer_files = yes
@@ -110,21 +128,48 @@ dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /e
             f.writelines(sing)
         os.chmod(f"{tmproot}/start.sh", 0o775)
         
-        print("Sandbox folder located at: "+tmproot)
+        logger.debug(" Sandbox folder located at: "+tmproot)
 
-        print("Submitting HTCondor job(s) for "+str(n)+" workers")
+        logger.debug(" Submitting HTCondor job(s) for "+str(n)+" workers")
 
         # We add this to avoid a bug on Farruk's condor_submit wrapper (a fix is in progress)
         os.environ['LS_COLORS']="ExGxBxDxCxEgEdxbxgxcxd"
 
         # Submit our jdl, print the result and call the cluster widget
-        result = subprocess.check_output(['sh','-c','/usr/local/bin/condor_submit htcdask_submitfile.jdl'], cwd=tmproot)
-        logger.info(result)
+        cmd = "/usr/local/bin/condor_submit htcdask_submitfile.jdl | grep -oP '(?<=cluster )[^ ]*'"
+        call = subprocess.check_output(['sh','-c',cmd], cwd=tmproot)
+        
+        worker_dict = {}
+        clusterid = call.decode().rstrip()[:-1]
+        worker_dict['ClusterId'] = clusterid
+        worker_dict['Iwd'] = tmproot
+        
+        cmd = "/usr/local/bin/condor_q "+clusterid+" -af GlobalJobId | awk '{print $1}'| awk -F '#' '{print $1}' | uniq"
+        call = subprocess.check_output(['sh','-c',cmd], cwd=tmproot)
+        
+        scheddname = call.decode().rstrip()
+        worker_dict['ScheddName'] = scheddname
+        
+        logger.info(" Success! submitted HTCondor jobs to "+scheddname+" with  ClusterId "+clusterid)
+        return worker_dict
         
     def scale_kube_workers(self, n):
         username = pwd.getpwuid( os.getuid() )[ 0 ]
-        logger.info("[WIP] Feature to be added ")
-        logger.info("[NOOP] Scaled "+str(n)+"Kube workers, startup may take uo to 30 seconds")
+        logger.debug(" [WIP] Feature to be added ")
+        logger.debug(" [NOOP] Scaled "+str(n)+"Kube workers, startup may take uo to 30 seconds")
+        
+    def destroy_batch_cluster_id(self, clusterid):
+        logger.info(" Shutting down HTCondor worker jobs from cluster "+clusterid)
+        cmd = "condor_rm "+self.batchWorkerJobs['ClusterId']+" -name "+self.batchWorkerJobs['ScheddName']
+        result = subprocess.check_output(['sh','-c',cmd], cwd=self.batchWorkerJobs['Iwd'])
+        logger.info(" "+result.decode().rstrip())
+
+    def destroy_all_batch_clusters(self):
+        logger.info(" Shutting down HTCondor worker jobs")
+        for htc_cluster in self.batchWorkerJobs:
+            cmd = "condor_rm "+htc_cluster['ClusterId']+" -name "+htc_cluster['ScheddName']
+            result = subprocess.check_output(['sh','-c',cmd], cwd=htc_cluster['Iwd'])
+            logger.info(" "+result.decode().rstrip())
 
     def adapt(self, minimum=None, maximum=None, active=True, **kwargs):
         """Configure adaptive scaling for the cluster.
@@ -138,10 +183,10 @@ dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /e
             If ``True`` (default), adaptive scaling is activated. Set to
             ``False`` to deactivate adaptive scaling.
         """
-        print("Hello, I am the interrupted adapt method")
-        print("I have two functions:")
-        print("1. Communicate to the Gateway server the new cluster state")
-        print("2. Call the adapt_cluster method on my LPCGateway")
+#        print("Hello, I am the interrupted adapt method")
+#        print("I have two functions:")
+#        print("1. Communicate to the Gateway server the new cluster state")
+#        print("2. Call the adapt_cluster method on my LPCGateway")
         
         return self.gateway.adapt_cluster(
             self.name, minimum=minimum, maximum=maximum, active=active, **kwargs

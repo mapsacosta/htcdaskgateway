@@ -5,11 +5,10 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="lpcdaskgateway",
-    version="0.1.0",
+    version="0.1.1",
     author="Maria P. Acosta F./Fermilab EAF project",
     author_email="macosta@fnal.gov",
     description="Launches a Dask Gateway cluster in K8s and joins HTCondor workers to it",
-#    install_requires=['dask=', 'dask-gateway'],
     long_description=long_description,
     long_description_content_type="text/markdown",
     license='Apache',

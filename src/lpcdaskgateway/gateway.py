@@ -11,18 +11,14 @@ import weakref
 import subprocess
 import dask
 import yaml
-from dask_jobqueue.htcondor import (
-    quote_arguments,
-    quote_environment,
-)
 
 # @author Maria A. - mapsacosta
  
 from distributed.core import Status
 from dask_gateway import Gateway
-from .cluster import LPCGatewayCluster
+from cluster import LPCGatewayCluster
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger("lpcdaskgateway.LPCGateway")
 
 
@@ -51,7 +47,7 @@ class LPCGateway(Gateway):
         -------
         cluster : GatewayCluster
         """
-        logger.warning("Creating LPCGatewayCluster")
+        logger.debug(" Creating LPCGatewayCluster ")
         return LPCGatewayCluster(
             address=self.address,
             proxy_address=self.proxy_address,
@@ -84,3 +80,17 @@ class LPCGateway(Gateway):
             The number of workers to scale to.
         """
         return self.sync(self._scale_cluster, cluster_name, n, **kwargs)
+    
+    async def _stop_cluster(self, cluster_name):
+        url = f"{self.address}/api/v1/clusters/{cluster_name}"
+        await self._request("DELETE", url)
+        LPCGatewayCluster.from_name(cluster_name).close(shutdown=True)
+
+    def stop_cluster(self, cluster_name, **kwargs):
+        """Stop a cluster.
+        Parameters
+        ----------
+        cluster_name : str
+            The cluster name.
+        """
+        return self.sync(self._stop_cluster, cluster_name, **kwargs)
