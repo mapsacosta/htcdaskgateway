@@ -1,5 +1,6 @@
 # lpcdaskgateway
 A Dask Gateway client extension for heterogeneous cluster mode combining the Kubernetes backend with the CMS Tier 1 HTCondor batch pool
+Latest release: [![PyPI version](https://badge.fury.io/py/lpcdaskgateway.svg)](https://badge.fury.io/py/lpcdaskgateway)
 
 ## Basic usage @ Fermilab [EAF](https://analytics-hub.fnal.gov)
 * Make sure the notebook launched supports this functionality (COFFEA-DASK notebook)
