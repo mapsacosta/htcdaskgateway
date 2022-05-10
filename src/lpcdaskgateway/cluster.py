@@ -21,12 +21,13 @@ class LPCGatewayCluster(GatewayCluster):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        logger.info(" Created cluster: " + self.name)
-
+   
     # We only want to override what's strictly necessary, scaling and adapting are the most important ones
         
     async def _stop_async(self):
-        if self.batchWorkerJobs:
+        if not self.batchWorkerJobs:
+            pass
+        else:
             self.destroy_all_batch_clusters()
         await super()._stop_async()
 
@@ -48,15 +49,18 @@ class LPCGatewayCluster(GatewayCluster):
         batchWorkers = True
         kubeWorkers = False
         
-        if batchWorkers:
-            self.batchWorkerJobs = []
-            logger.debug(" Scaling: "+str(n)+" HTCondor workers")
-            self.batchWorkerJobs.append(self.scale_batch_workers(n))
-            logger.info(" New Cluster state ")
-            logger.info(self.batchWorkerJobs)
-        elif kubeWorkers:
-            self.kubeWorkerJobs = []
-            self.kubeWorkerJobs.append(self.scale_kube_workers(n))
+        try:
+            if batchWorkers:
+                self.batchWorkerJobs = []
+                logger.info(" Scaling: "+str(n)+" HTCondor workers")
+                self.batchWorkerJobs.append(self.scale_batch_workers(n))
+                logger.debug(" New Cluster state ")
+                logger.debug(self.batchWorkerJobs)
+            elif kubeWorkers:
+                self.kubeWorkerJobs = []
+                self.kubeWorkerJobs.append(self.scale_kube_workers(n))
+        except: 
+            logger.error("A problem has occurred while scaling, please try again")
         
         return self.gateway.scale_cluster(self.name, n, **kwargs)
     
@@ -121,14 +125,14 @@ export SINGULARITYENV_DASK_DISTRIBUTED__LOGGING__DISTRIBUTED="debug"
 worker_space_dir=${PWD}/dask-worker-space/$2
 mkdir $worker_space_dir
 
-singularity exec -B ${worker_space_dir}:/srv/dask-worker-space -B dask-credentials:/etc/dask-credentials /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:0.7.12-fastjet-3.3.4.0rc9-g8a990fa \
-dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /etc/dask-credentials/dask.crt --tls-key /etc/dask-credentials/dask.pem --worker-port 10000:10070 --no-nanny --no-dashboard --local-directory /srv --nthreads 1 --nprocs 1 tls://dask-gateway-tls.fnal.gov:443"""
+singularity exec -B ${worker_space_dir}:/srv/dask-worker-space -B dask-credentials:/etc/dask-credentials /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:0.7.14-fastjet-3.3.4.0rc9-g6859ab7 \
+dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /etc/dask-credentials/dask.crt --tls-key /etc/dask-credentials/dask.pem --worker-port 10000:10070 --no-nanny --no-dashboard --local-directory /srv --scheduler-sni daskgateway-"""+cluster_name+""" --nthreads 1 --nprocs 1 tls://gatewayscheduler-1.fnal.gov:80"""
     
         with open(f"{tmproot}/start.sh", 'w+') as f:
             f.writelines(sing)
         os.chmod(f"{tmproot}/start.sh", 0o775)
         
-        logger.debug(" Sandbox folder located at: "+tmproot)
+        logger.info(" Sandbox: "+tmproot)
 
         logger.debug(" Submitting HTCondor job(s) for "+str(n)+" workers")
 
@@ -143,10 +147,12 @@ dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /e
         clusterid = call.decode().rstrip()[:-1]
         worker_dict['ClusterId'] = clusterid
         worker_dict['Iwd'] = tmproot
-        
-        cmd = "/usr/local/bin/condor_q "+clusterid+" -af GlobalJobId | awk '{print $1}'| awk -F '#' '{print $1}' | uniq"
-        call = subprocess.check_output(['sh','-c',cmd], cwd=tmproot)
-        
+        try:
+            cmd = "/usr/local/bin/condor_q "+clusterid+" -af GlobalJobId | awk '{print $1}'| awk -F '#' '{print $1}' | uniq"
+            call = subprocess.check_output(['sh','-c',cmd], cwd=tmproot)
+        except CalledProcessError:
+            logger.error("Error submitting HTCondor jobs, make sure you have a valid proxy and try again")
+            return None
         scheddname = call.decode().rstrip()
         worker_dict['ScheddName'] = scheddname
         
@@ -167,9 +173,12 @@ dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /e
     def destroy_all_batch_clusters(self):
         logger.info(" Shutting down HTCondor worker jobs")
         for htc_cluster in self.batchWorkerJobs:
-            cmd = "condor_rm "+htc_cluster['ClusterId']+" -name "+htc_cluster['ScheddName']
-            result = subprocess.check_output(['sh','-c',cmd], cwd=htc_cluster['Iwd'])
-            logger.info(" "+result.decode().rstrip())
+            try:
+                cmd = "condor_rm "+htc_cluster['ClusterId']+" -name "+htc_cluster['ScheddName']
+                result = subprocess.check_output(['sh','-c',cmd], cwd=htc_cluster['Iwd'])
+                logger.info(" "+result.decode().rstrip())
+            except CalledProcessError:
+                logger.info(" "+result.decode().rstrip())
 
     def adapt(self, minimum=None, maximum=None, active=True, **kwargs):
         """Configure adaptive scaling for the cluster.

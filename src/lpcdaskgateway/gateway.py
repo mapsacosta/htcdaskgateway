@@ -8,6 +8,7 @@ import sys
 import pwd
 import tempfile
 import weakref
+import pprint
 import subprocess
 import dask
 import yaml
@@ -16,7 +17,7 @@ import yaml
  
 from distributed.core import Status
 from dask_gateway import Gateway
-from cluster import LPCGatewayCluster
+from .cluster import LPCGatewayCluster
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger("lpcdaskgateway.LPCGateway")
@@ -24,9 +25,9 @@ logger = logging.getLogger("lpcdaskgateway.LPCGateway")
 
 class LPCGateway(Gateway):
     
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs):  
         super().__init__(address="http://172.30.227.32", auth="jupyterhub", **kwargs)
-
+    
     def new_cluster(self, cluster_options=None, shutdown_on_close=True, **kwargs):
         """Submit a new cluster to the gateway, and wait for it to be started.
         Same as calling ``submit`` and ``connect`` in one go.
@@ -47,7 +48,7 @@ class LPCGateway(Gateway):
         -------
         cluster : GatewayCluster
         """
-        logger.debug(" Creating LPCGatewayCluster ")
+        logger.info(" Creating LPCGatewayCluster ")
         return LPCGatewayCluster(
             address=self.address,
             proxy_address=self.proxy_address,
@@ -94,3 +95,12 @@ class LPCGateway(Gateway):
             The cluster name.
         """
         return self.sync(self._stop_cluster, cluster_name, **kwargs)
+    
+    async def _cluster_report(self, cluster_name, wait=False):
+        params = "?wait" if wait else ""
+        url = f"{self.address}/api/v1/clusters/{cluster_name}{params}"
+        print(url)
+        resp = await self._request("GET", url)
+        data = await resp.json()
+        print(data)
+        return ClusterReport._from_json(self._public_address, self.proxy_address, data)
