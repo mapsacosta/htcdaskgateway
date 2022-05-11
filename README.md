@@ -13,6 +13,7 @@ from lpcdaskgateway import LPCGateway
 
 gateway = LPCGateway()
 cluster = gateway.new_cluster()
+cluster
 
 # Scale my cluster to 5 HTCondor workers
 cluster.scale(5)
@@ -24,4 +25,36 @@ client
 
 # When computations are finished, shutdown the cluster
 cluster.shutdown()
+```
+## Other functions worth checking out
+* This is a multi-tenant environment, and you are authenticated via JupyterHub Oauth which means that you can create as many* clusters as you wish
+* To list your clusters:
+```
+# Verify that the gateway is responding to requests by asking to list all its clusters
+clusters = gateway.list_clusters()
+clusters
+```
+* To connect to a specific cluster from the list:
+```
+cluster = gateway.connect(cluster_name)
+cluster
+cluster.shutdown()
+```
+* To gracefully close the cluster and remove HTCondor worker jobs associated to it:
+```
+cluster.shutdown()
+```
+* There are widgets implemented by Dask Gateway. Make sure to give them a try from your EAF COFFEA notebook, just execute the the `client` and `cluster` commands (after properly initializing them) in a cell like: 
+```
+-------------
+cluster = gateway.new_cluster()
+cluster
+< Widget will appear after this step>
+-------------
+client = cluster.get_client()
+client
+< Widget will apear after this step >
+-------------
+cluster
+< Widget will appear after this step >
 ```
