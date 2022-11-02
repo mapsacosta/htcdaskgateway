@@ -1,7 +1,7 @@
-# lpcdaskgateway
+# HTCdaskGateway
 
-* A Dask Gateway client extension for heterogeneous cluster mode combining the Kubernetes backend for pain-free scheduler networking, with COFFEA-powered HTCondor workers from the LPC and/or OKD [coming soon].
-* Latest [![PyPI version](https://badge.fury.io/py/lpcdaskgateway.svg)](https://badge.fury.io/py/lpcdaskgateway)
+* A Dask Gateway client extension for heterogeneous cluster mode combining the Kubernetes backend for pain-free scheduler networking, with COFFEA-powered HTCondor workers and/or OKD [coming soon].
+* Latest [![PyPI version](https://badge.fury.io/py/htcdaskgateway.svg)](https://badge.fury.io/py/htcdaskgateway)
  is installed by default and deployed to the COFFEA-DASK notebook on EAF (https://analytics-hub.fnal.gov). A few lines will get you going!
 * The current image for workers/schedulers is: coffeateam/coffea-dask-cc7-gateway:0.7.12-fastjet-3.3.4.0rc9-g8a990fa
 
@@ -9,9 +9,9 @@
 * Make sure the notebook launched supports this functionality (COFFEA-DASK notebook)
 
 ```
-from lpcdaskgateway import LPCGateway
+from htcdaskgateway import HTCGateway
 
-gateway = LPCGateway()
+gateway = HTCGateway()
 cluster = gateway.new_cluster()
 
 # Scale my cluster to 5 HTCondor workers

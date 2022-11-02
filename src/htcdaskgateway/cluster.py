@@ -14,12 +14,13 @@ import pprint
 from distributed.core import Status
 from dask_gateway import GatewayCluster
 
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-logger = logging.getLogger("lpcdaskgateway.GatewayCluster")
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logger = logging.getLogger("htcdaskgateway.GatewayCluster")
 
-class LPCGatewayCluster(GatewayCluster):
+class HTCGatewayCluster(GatewayCluster):
     
     def __init__(self, **kwargs):
+        self.scheduler_proxy_ip = kwargs.pop('', '131.225.219.43')
         super().__init__(**kwargs)
    
     # We only want to override what's strictly necessary, scaling and adapting are the most important ones
@@ -44,23 +45,20 @@ class LPCGatewayCluster(GatewayCluster):
         #print("I have two functions:")
         #print("1. Communicate to the Gateway server the new cluster state")
         #print("2. Call the scale_cluster method on my LPCGateway")
-        #print("In the future, I will allow for Kubernetes workers as well"        
-             
-        batchWorkers = True
-        kubeWorkers = False
-        
+        #print("In the future, I will allow for Kubernetes workers as well"
+        worker_type = 'htcondor'
+            
+        logger.warn(" worker_type: "+str(worker_type))
+        self.batchWorkerJobs = []
         try:
-            if batchWorkers:
+            if 'condor' in worker_type:
                 self.batchWorkerJobs = []
                 logger.info(" Scaling: "+str(n)+" HTCondor workers")
                 self.batchWorkerJobs.append(self.scale_batch_workers(n))
                 logger.debug(" New Cluster state ")
                 logger.debug(self.batchWorkerJobs)
-            elif kubeWorkers:
-                self.kubeWorkerJobs = []
-                self.kubeWorkerJobs.append(self.scale_kube_workers(n))
         except: 
-            logger.error("A problem has occurred while scaling, please try again")
+            logger.error("A problem has occurred while scaling via HTCondor, creating Kubernetes workers")
         
         return self.gateway.scale_cluster(self.name, n, **kwargs)
     
@@ -125,8 +123,8 @@ export SINGULARITYENV_DASK_DISTRIBUTED__LOGGING__DISTRIBUTED="debug"
 worker_space_dir=${PWD}/dask-worker-space/$2
 mkdir $worker_space_dir
 
-singularity exec -B ${worker_space_dir}:/srv/dask-worker-space -B dask-credentials:/etc/dask-credentials /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:0.7.14-fastjet-3.3.4.0rc9-g6859ab7 \
-dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /etc/dask-credentials/dask.crt --tls-key /etc/dask-credentials/dask.pem --worker-port 10000:10070 --no-nanny --no-dashboard --local-directory /srv --scheduler-sni daskgateway-"""+cluster_name+""" --nthreads 1 --nprocs 1 tls://gatewayscheduler-1.fnal.gov:80"""
+singularity exec -B ${worker_space_dir}:/srv/dask-worker-space -B dask-credentials:/etc/dask-credentials /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:0.7.19-fastjet-3.3.4.0rc9-g4934548 \
+dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /etc/dask-credentials/dask.crt --tls-key /etc/dask-credentials/dask.pem --worker-port 10000:10070 --no-nanny --no-dashboard --local-directory /srv --scheduler-sni daskgateway-"""+cluster_name+""" --nthreads 1 --nprocs 1 tls://131.225.219.43:80"""
     
         with open(f"{tmproot}/start.sh", 'w+') as f:
             f.writelines(sing)
@@ -195,7 +193,7 @@ dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /e
 #        print("Hello, I am the interrupted adapt method")
 #        print("I have two functions:")
 #        print("1. Communicate to the Gateway server the new cluster state")
-#        print("2. Call the adapt_cluster method on my LPCGateway")
+#        print("2. Call the adapt_cluster method on my HTCGateway")
         
         return self.gateway.adapt_cluster(
             self.name, minimum=minimum, maximum=maximum, active=active, **kwargs

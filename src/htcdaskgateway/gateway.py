@@ -17,16 +17,17 @@ import yaml
  
 from distributed.core import Status
 from dask_gateway import Gateway
-from .cluster import LPCGatewayCluster
+from .cluster import HTCGatewayCluster
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-logger = logging.getLogger("lpcdaskgateway.LPCGateway")
+logger = logging.getLogger("htcdaskgateway.HTCGateway")
 
 
-class LPCGateway(Gateway):
+class HTCGateway(Gateway):
     
-    def __init__(self, **kwargs):  
-        super().__init__(address="http://172.30.227.32", auth="jupyterhub", **kwargs)
+    def __init__(self, **kwargs):
+        address = kwargs.pop('address', 'http://172.30.92.196')
+        super().__init__(address, auth="jupyterhub", **kwargs)
     
     def new_cluster(self, cluster_options=None, shutdown_on_close=True, **kwargs):
         """Submit a new cluster to the gateway, and wait for it to be started.
@@ -48,8 +49,8 @@ class LPCGateway(Gateway):
         -------
         cluster : GatewayCluster
         """
-        logger.info(" Creating LPCGatewayCluster ")
-        return LPCGatewayCluster(
+        logger.info(" Creating HTCGatewayCluster ")
+        return HTCGatewayCluster(
             address=self.address,
             proxy_address=self.proxy_address,
             public_address=self._public_address,
@@ -60,18 +61,8 @@ class LPCGateway(Gateway):
             shutdown_on_close=shutdown_on_close,
             **kwargs,
         )
-    
-    async def _scale_cluster(self, cluster_name, n):
-        url = "%s/api/v1/clusters/%s/scale" % (self.address, cluster_name)
-        resp = await self._request("POST", url, json={"count": n})
-        try:
-            msg = await resp.json()
-        except Exception:
-            msg = {}
-        if not msg.get("ok", True) and msg.get("msg"):
-            warnings.warn(GatewayWarning(msg["msg"]))
 
-    def scale_cluster(self, cluster_name, n, **kwargs):
+    def scale_cluster(self, cluster_name, n, worker_type, **kwargs):
         """Scale a cluster to n workers.
         Parameters
         ----------
@@ -85,7 +76,7 @@ class LPCGateway(Gateway):
     async def _stop_cluster(self, cluster_name):
         url = f"{self.address}/api/v1/clusters/{cluster_name}"
         await self._request("DELETE", url)
-        LPCGatewayCluster.from_name(cluster_name).close(shutdown=True)
+        HTCGatewayCluster.from_name(cluster_name).close(shutdown=True)
 
     def stop_cluster(self, cluster_name, **kwargs):
         """Stop a cluster.

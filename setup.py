@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="lpcdaskgateway",
+    name="htcdaskgateway",
     version="0.1.4",
     author="Maria P. Acosta F./Fermilab EAF project",
     author_email="macosta@fnal.gov",
@@ -12,7 +12,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     license='Apache',
-    url="https://github.com/mapsacosta/lpcdaskgateway",
+    url="https://github.com/mapsacosta/htcdaskgateway",
     packages=setuptools.find_packages(where='src'),
     package_dir={'': 'src', },
     classifiers=[
