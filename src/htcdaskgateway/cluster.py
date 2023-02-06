@@ -21,15 +21,13 @@ class HTCGatewayCluster(GatewayCluster):
     
     def __init__(self, **kwargs):
         self.scheduler_proxy_ip = kwargs.pop('', '131.225.219.43')
+        self.batchWorkerJobs = []
         super().__init__(**kwargs)
    
     # We only want to override what's strictly necessary, scaling and adapting are the most important ones
         
     async def _stop_async(self):
-        if not self.batchWorkerJobs:
-            pass
-        else:
-            self.destroy_all_batch_clusters()
+        self.destroy_all_batch_clusters()
         await super()._stop_async()
 
         self.status = "closed"
@@ -47,9 +45,7 @@ class HTCGatewayCluster(GatewayCluster):
         #print("2. Call the scale_cluster method on my LPCGateway")
         #print("In the future, I will allow for Kubernetes workers as well"
         worker_type = 'htcondor'
-            
         logger.warn(" worker_type: "+str(worker_type))
-        self.batchWorkerJobs = []
         try:
             if 'condor' in worker_type:
                 self.batchWorkerJobs = []
@@ -57,10 +53,11 @@ class HTCGatewayCluster(GatewayCluster):
                 self.batchWorkerJobs.append(self.scale_batch_workers(n))
                 logger.debug(" New Cluster state ")
                 logger.debug(self.batchWorkerJobs)
+                return self.gateway.scale_cluster(self.name, n, **kwargs)
+
         except: 
-            logger.error("A problem has occurred while scaling via HTCondor, creating Kubernetes workers")
-        
-        return self.gateway.scale_cluster(self.name, n, **kwargs)
+            logger.error("A problem has occurred while scaling via HTCondor, please check your proxy credentials")
+            return False
     
     def scale_batch_workers(self, n):
         username = pwd.getpwuid( os.getuid() )[ 0 ]
@@ -70,7 +67,7 @@ class HTCGatewayCluster(GatewayCluster):
         condor_logdir = f"{tmproot}/condor"
         credentials_dir = f"{tmproot}/dask-credentials"
         worker_space_dir = f"{tmproot}/dask-worker-space"
-        image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:0.7.12-fastjet-3.3.4.0rc9-g8a990fa"
+        image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:latest"
         os.makedirs(tmproot, exist_ok=True)
         os.makedirs(condor_logdir, exist_ok=True)
         os.makedirs(credentials_dir, exist_ok=True)
@@ -113,7 +110,7 @@ Queue """+str(n)+""
             f.writelines(jdl)
         
         # Prepare singularity command
-        sing = """#!/bin/bash
+        singularity_cmd = """#!/bin/bash
 export SINGULARITYENV_DASK_GATEWAY_WORKER_NAME=$2
 export SINGULARITYENV_DASK_GATEWAY_API_URL="https://dask-gateway-api.fnal.gov/api"
 export SINGULARITYENV_DASK_GATEWAY_CLUSTER_NAME=$1
@@ -123,11 +120,11 @@ export SINGULARITYENV_DASK_DISTRIBUTED__LOGGING__DISTRIBUTED="debug"
 worker_space_dir=${PWD}/dask-worker-space/$2
 mkdir $worker_space_dir
 
-singularity exec -B ${worker_space_dir}:/srv/dask-worker-space -B dask-credentials:/etc/dask-credentials /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:0.7.19-fastjet-3.3.4.0rc9-g4934548 \
-dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /etc/dask-credentials/dask.crt --tls-key /etc/dask-credentials/dask.pem --worker-port 10000:10070 --no-nanny --no-dashboard --local-directory /srv --scheduler-sni daskgateway-"""+cluster_name+""" --nthreads 1 --nprocs 1 tls://131.225.219.43:80"""
+singularity exec -B ${worker_space_dir}:/srv/dask-worker-space -B dask-credentials:/etc/dask-credentials """+image_name+""" \
+dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /etc/dask-credentials/dask.crt --tls-key /etc/dask-credentials/dask.pem --worker-port 10000:10070 --no-nanny --no-dashboard --local-directory /srv --scheduler-sni daskgateway-"""+cluster_name+""" --nthreads 1 tls://"""+self.scheduler_proxy_ip+""":80"""
     
         with open(f"{tmproot}/start.sh", 'w+') as f:
-            f.writelines(sing)
+            f.writelines(singularity_cmd)
         os.chmod(f"{tmproot}/start.sh", 0o775)
         
         logger.info(" Sandbox: "+tmproot)
@@ -169,7 +166,10 @@ dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /e
         logger.info(" "+result.decode().rstrip())
 
     def destroy_all_batch_clusters(self):
-        logger.info(" Shutting down HTCondor worker jobs")
+        logger.info(" Shutting down HTCondor worker jobs (if any)")
+        if not self.batchWorkerJobs:
+            return
+        
         for htc_cluster in self.batchWorkerJobs:
             try:
                 cmd = "condor_rm "+htc_cluster['ClusterId']+" -name "+htc_cluster['ScheddName']
