@@ -111,16 +111,16 @@ Queue """+str(n)+""
         
         # Prepare singularity command
         singularity_cmd = """#!/bin/bash
-export SINGULARITYENV_DASK_GATEWAY_WORKER_NAME=$2
-export SINGULARITYENV_DASK_GATEWAY_API_URL="https://dask-gateway-api.fnal.gov/api"
-export SINGULARITYENV_DASK_GATEWAY_CLUSTER_NAME=$1
-export SINGULARITYENV_DASK_GATEWAY_API_TOKEN=/etc/dask-credentials/api-token
-export SINGULARITYENV_DASK_DISTRIBUTED__LOGGING__DISTRIBUTED="debug"
+export APPTAINERENV_DASK_GATEWAY_WORKER_NAME=$2
+export APPTAINERENV_DASK_GATEWAY_API_URL="https://dask-gateway-api.fnal.gov/api"
+export APPTAINERENV_DASK_GATEWAY_CLUSTER_NAME=$1
+export APPTAINERENV_DASK_GATEWAY_API_TOKEN=/etc/dask-credentials/api-token
+export APPTAINERENV_DASK_DISTRIBUTED__LOGGING__DISTRIBUTED="debug"
 
 worker_space_dir=${PWD}/dask-worker-space/$2
 mkdir $worker_space_dir
 
-singularity exec -B ${worker_space_dir}:/srv/dask-worker-space -B dask-credentials:/etc/dask-credentials """+image_name+""" \
+/cvmfs/oasis.opensciencegrid.org/mis/apptainer/current/bin/apptainer exec -B ${worker_space_dir}:/srv/dask-worker-space -B dask-credentials:/etc/dask-credentials """+image_name+""" \
 dask-worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /etc/dask-credentials/dask.crt --tls-key /etc/dask-credentials/dask.pem --worker-port 10000:10070 --no-nanny --no-dashboard --local-directory /srv --scheduler-sni daskgateway-"""+cluster_name+""" --nthreads 1 tls://"""+self.scheduler_proxy_ip+""":80"""
     
         with open(f"{tmproot}/start.sh", 'w+') as f:
