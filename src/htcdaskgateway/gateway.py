@@ -26,8 +26,7 @@ logger = logging.getLogger("htcdaskgateway.HTCGateway")
 class HTCGateway(Gateway):
     
     def __init__(self, **kwargs):
-        address = kwargs.pop('address', 'http://172.30.92.196')
-        _public_address = kwargs.pop('public_address', 'https://dask-gateway.fnal.gov')
+        address = kwargs.pop('address', 'http://traefik-dask-gateway.dask-gateway.svc.cluster.local')
         super().__init__(address, auth="jupyterhub", **kwargs)
     
     def new_cluster(self, cluster_options=None, shutdown_on_close=True, **kwargs):
