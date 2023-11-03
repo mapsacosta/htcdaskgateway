@@ -23,6 +23,9 @@ class HTCGatewayCluster(GatewayCluster):
         self.scheduler_proxy_ip = kwargs.pop('', '131.225.219.43')
         self.batchWorkerJobs = []
         super().__init__(**kwargs)
+        self.cluster_options = kwargs.pop('cluster_options','image')
+        if(self.cluster_options != None):
+            print("Selected Image: ", self.cluster_options.image)
    
     # We only want to override what's strictly necessary, scaling and adapting are the most important ones
         
@@ -59,7 +62,7 @@ class HTCGatewayCluster(GatewayCluster):
             logger.error("A problem has occurred while scaling via HTCondor, please check your proxy credentials")
             return False
     
-    def scale_batch_workers(self, n):
+    def scale_batch_workers(self, n, **kwargs):
         username = pwd.getpwuid( os.getuid() )[ 0 ]
         security = self.security
         cluster_name = self.name
@@ -67,7 +70,13 @@ class HTCGatewayCluster(GatewayCluster):
         condor_logdir = f"{tmproot}/condor"
         credentials_dir = f"{tmproot}/dask-credentials"
         worker_space_dir = f"{tmproot}/dask-worker-space"
-        image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:latest"
+        
+        if self.cluster_options != None:
+            image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/" + self.cluster_options.image
+        else:
+            python_vers = "{0}.{1}".format(sys.version_info[0],sys.version_info[1])
+            image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:0.7.21-fastjet-3.4.0.1-g6238ea8"
+            
         os.makedirs(tmproot, exist_ok=True)
         os.makedirs(condor_logdir, exist_ok=True)
         os.makedirs(credentials_dir, exist_ok=True)
