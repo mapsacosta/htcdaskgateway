@@ -24,9 +24,7 @@ class HTCGatewayCluster(GatewayCluster):
         self.batchWorkerJobs = []
         super().__init__(**kwargs)
         self.cluster_options = kwargs.pop('cluster_options','image')
-        if(hasattr(self.cluster_options,"image")):
-            print("Has an image")
-        if(self.cluster_options != None):
+        if hasattr(self.cluster_options,"image"):
             print("Selected Image: ", self.cluster_options.image)
    
     # We only want to override what's strictly necessary, scaling and adapting are the most important ones
@@ -74,16 +72,17 @@ class HTCGatewayCluster(GatewayCluster):
         worker_space_dir = f"{tmproot}/dask-worker-space"
         python_vers = "{0}.{1}".format(sys.version_info[0],sys.version_info[1])
         
-        if self.cluster_options != None:
+        if hasattr(self.cluster_options,"image"):
             image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/" + self.cluster_options.image
-            logger.info("Creating with option image " + image_name)
         elif python_vers == "3.10":
             print("python version" + python_vers)
-            image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:latest-py"+python_vers
-            logger.info("Creating with image " + image_name)
+            image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:0.7.21-py3.10-g7cbcc"
         else:
             image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:0.7.21-fastjet-3.4.0.1-g6238ea8"
             
+            
+        logger.info("Creating with image " + image_name)
+        
         os.makedirs(tmproot, exist_ok=True)
         os.makedirs(condor_logdir, exist_ok=True)
         os.makedirs(credentials_dir, exist_ok=True)
