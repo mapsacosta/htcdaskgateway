@@ -20,7 +20,7 @@ logger = logging.getLogger("htcdaskgateway.GatewayCluster")
 class HTCGatewayCluster(GatewayCluster):
     
     def __init__(self, **kwargs):
-        self.scheduler_proxy_ip = kwargs.pop('', '131.225.219.43')
+        self.scheduler_proxy_ip = kwargs.pop('', '131.225.218.222')
         self.batchWorkerJobs = []
         super().__init__(**kwargs)
         self.cluster_options = kwargs.pop('cluster_options','image')
