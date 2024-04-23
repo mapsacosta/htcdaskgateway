@@ -8,19 +8,20 @@ import tempfile
 import subprocess
 import weakref
 import pprint
+import traceback
 
 # @author Maria A. - mapsacosta
  
 from distributed.core import Status
 from dask_gateway import GatewayCluster
 
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger("htcdaskgateway.GatewayCluster")
 
 class HTCGatewayCluster(GatewayCluster):
     
     def __init__(self, **kwargs):
-        self.scheduler_proxy_ip = kwargs.pop('', '131.225.219.43')
+        self.scheduler_proxy_ip = kwargs.pop('', '131.225.218.222')
         self.batchWorkerJobs = []
         super().__init__(**kwargs)
    
@@ -56,6 +57,7 @@ class HTCGatewayCluster(GatewayCluster):
                 return self.gateway.scale_cluster(self.name, n, **kwargs)
 
         except: 
+            print(traceback.format_exc())
             logger.error("A problem has occurred while scaling via HTCondor, please check your proxy credentials")
             return False
     
@@ -67,7 +69,8 @@ class HTCGatewayCluster(GatewayCluster):
         condor_logdir = f"{tmproot}/condor"
         credentials_dir = f"{tmproot}/dask-credentials"
         worker_space_dir = f"{tmproot}/dask-worker-space"
-        image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-cc7-gateway:latest"
+        image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux8:2024.4.0-py3.10"
+        logger.info(" Using worker image: "+image_name)
         os.makedirs(tmproot, exist_ok=True)
         os.makedirs(condor_logdir, exist_ok=True)
         os.makedirs(credentials_dir, exist_ok=True)
@@ -101,7 +104,7 @@ output = condor/htcdask-worker$(Cluster)_$(Process).out
 error = condor/htcdask-worker$(Cluster)_$(Process).err
 log = condor/htcdask-worker$(Cluster)_$(Process).log
 request_cpus = 4
-request_memory = 2100
+request_memory = 8GB
 should_transfer_files = yes
 transfer_input_files = """+credentials_dir+""", """+worker_space_dir+""" , """+condor_logdir+"""
 Queue """+str(n)+""
@@ -115,20 +118,20 @@ export APPTAINERENV_DASK_GATEWAY_WORKER_NAME=$2
 export APPTAINERENV_DASK_GATEWAY_API_URL="https://dask-gateway-api.fnal.gov/api"
 export APPTAINERENV_DASK_GATEWAY_CLUSTER_NAME=$1
 export APPTAINERENV_DASK_GATEWAY_API_TOKEN=/etc/dask-credentials/api-token
-export APPTAINERENV_DASK_DISTRIBUTED__LOGGING__DISTRIBUTED="debug"
+#export APPTAINERENV_DASK_DISTRIBUTED__LOGGING__DISTRIBUTED="debug"
 
 worker_space_dir=${PWD}/dask-worker-space/$2
 mkdir $worker_space_dir
 
-/cvmfs/oasis.opensciencegrid.org/mis/apptainer/current/bin/apptainer exec -B ${worker_space_dir}:/srv -B dask-credentials:/etc/dask-credentials """+image_name+""" \
-dask worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /etc/dask-credentials/dask.crt --tls-key /etc/dask-credentials/dask.pem --worker-port 10000:10070 --no-nanny --no-dashboard --local-directory /srv --scheduler-sni daskgateway-"""+cluster_name+""" --nthreads 1 tls://"""+self.scheduler_proxy_ip+""":80"""
+/cvmfs/oasis.opensciencegrid.org/mis/apptainer/current/bin/apptainer exec -B ${worker_space_dir}:/srv/ -B dask-credentials:/etc/dask-credentials """+image_name+""" \
+dask worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /etc/dask-credentials/dask.crt --tls-key /etc/dask-credentials/dask.pem --worker-port 10000:10070 --no-nanny --local-directory /srv --scheduler-sni daskgateway-"""+cluster_name+""" --nthreads 1 tls://"""+self.scheduler_proxy_ip+""":80"""
     
         with open(f"{tmproot}/start.sh", 'w+') as f:
             f.writelines(singularity_cmd)
         os.chmod(f"{tmproot}/start.sh", 0o775)
         
-        logger.info(" Sandbox: "+tmproot)
-
+        logger.info(" Sandbox : "+tmproot)
+        logger.info(" Using image: "+image_name)
         logger.debug(" Submitting HTCondor job(s) for "+str(n)+" workers")
 
         # We add this to avoid a bug on Farruk's condor_submit wrapper (a fix is in progress)
@@ -175,7 +178,7 @@ dask worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /e
                 cmd = "condor_rm "+htc_cluster['ClusterId']+" -name "+htc_cluster['ScheddName']
                 result = subprocess.check_output(['sh','-c',cmd], cwd=htc_cluster['Iwd'])
                 logger.info(" "+result.decode().rstrip())
-            except CalledProcessError:
+            except:
                 logger.info(" "+result.decode().rstrip())
 
     def adapt(self, minimum=None, maximum=None, active=True, **kwargs):
