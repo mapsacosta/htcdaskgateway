@@ -17,6 +17,7 @@ import yaml
  
 from distributed.core import Status
 from dask_gateway import Gateway
+#from .options import Options
 from .cluster import HTCGatewayCluster
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -53,11 +54,10 @@ class HTCGateway(Gateway):
         return HTCGatewayCluster(
             address=self.address,
             proxy_address=self.proxy_address,
-            public_address=self._public_address,
+            public_address='https://dask-gateway.fnal.gov',
             auth=self.auth,
             asynchronous=self.asynchronous,
             loop=self.loop,
-            cluster_options=cluster_options,
             shutdown_on_close=shutdown_on_close,
             **kwargs,
         )
