@@ -24,8 +24,7 @@ class HTCGatewayCluster(GatewayCluster):
         self.scheduler_proxy_ip = kwargs.pop('', '131.225.218.222')
         self.batchWorkerJobs = []
         self.cluster_options = kwargs.get('cluster_options', 'image')
-        print(self.cluster_options.image)
-        if self.cluster_options.image == None:
+        if self.cluster_options.image == "default":
             self.cluster_options.image = 'coffeateam/coffea-dask-cc7-gateway:0.7.21-py3.10-g7cbcc'
             print("Selected Image: ", self.cluster_options.image)
         else:
