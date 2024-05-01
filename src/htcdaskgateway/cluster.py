@@ -25,7 +25,7 @@ class HTCGatewayCluster(GatewayCluster):
         self.batchWorkerJobs = []
         self.cluster_options = kwargs.get('cluster_options', 'image')
         if self.cluster_options.image == "default":
-            self.cluster_options.image = 'coffeateam/coffea-dask-cc7-gateway:0.7.21-py3.10-g7cbcc'
+            self.cluster_options.image = 'coffeateam/coffea-dask-almalinux8:2024.4.0-py3.10'
             print("Selected Image: ", self.cluster_options.image)
         else:
             print("Selected Image: ", self.cluster_options.image)
@@ -75,9 +75,6 @@ class HTCGatewayCluster(GatewayCluster):
         condor_logdir = f"{tmproot}/condor"
         credentials_dir = f"{tmproot}/dask-credentials"
         worker_space_dir = f"{tmproot}/dask-worker-space"
-        
-        if hasattr(self.cluster_options,"image"):
-            print("has the image")
         
         image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/" + self.cluster_options.image
         
