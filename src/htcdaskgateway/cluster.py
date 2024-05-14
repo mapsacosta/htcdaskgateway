@@ -23,12 +23,17 @@ class HTCGatewayCluster(GatewayCluster):
     def __init__(self, **kwargs):
         self.scheduler_proxy_ip = kwargs.pop('', '131.225.218.222')
         self.batchWorkerJobs = []
-        self.cluster_options = kwargs.get('cluster_options', 'image')
-        if self.cluster_options.image == "default":
-            self.cluster_options.image = 'coffeateam/coffea-dask-almalinux8:2024.4.0-py3.10'
-            print("Selected Image: ", self.cluster_options.image)
+        self.defaultImage = 'coffeateam/coffea-dask-almalinux8:2024.4.0-py3.10'
+        self.cluster_options = kwargs.get('cluster_options')
+        
+        #set default image if the image is not specified by user
+        if not kwargs.get('image') and (not self.cluster_options or not self.cluster_options.image):
+            kwargs['image'] = self.defaultImage
+            print("Selected Image: ", kwargs['image'])
+            self.condor_image = self.defaultImage
         else:
-            print("Selected Image: ", self.cluster_options.image)
+            self.condor_image = kwargs.get('image')
+        
         super().__init__(**kwargs)
    
     # We only want to override what's strictly necessary, scaling and adapting are the most important ones
@@ -39,7 +44,7 @@ class HTCGatewayCluster(GatewayCluster):
 
         self.status = "closed"
     
-    def scale(self, n, **kwargs):
+    def scale(self, n):
         """Scale the cluster to ``n`` workers.
         Parameters
         ----------
@@ -60,14 +65,14 @@ class HTCGatewayCluster(GatewayCluster):
                 self.batchWorkerJobs.append(self.scale_batch_workers(n))
                 logger.debug(" New Cluster state ")
                 logger.debug(self.batchWorkerJobs)
-                return self.gateway.scale_cluster(self.name, n, **kwargs)
+                return self.gateway.scale_cluster(self.name, n)
 
         except: 
             print(traceback.format_exc())
             logger.error("A problem has occurred while scaling via HTCondor, please check your proxy credentials")
             return False
     
-    def scale_batch_workers(self, n, **kwargs):
+    def scale_batch_workers(self, n):
         username = pwd.getpwuid( os.getuid() )[ 0 ]
         security = self.security
         cluster_name = self.name
@@ -76,7 +81,7 @@ class HTCGatewayCluster(GatewayCluster):
         credentials_dir = f"{tmproot}/dask-credentials"
         worker_space_dir = f"{tmproot}/dask-worker-space"
         
-        image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/" + self.cluster_options.image
+        image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/" + self.condor_image
         
         logger.info("Creating with image " + image_name)
 
