@@ -65,7 +65,7 @@ class HTCGatewayCluster(GatewayCluster):
                 self.batchWorkerJobs.append(self.scale_batch_workers(n))
                 logger.debug(" New Cluster state ")
                 logger.debug(self.batchWorkerJobs)
-                return self.gateway.scale_cluster(self.name, n)
+                return self.gateway.scale_cluster(self.name, n, **kwargs)
 
         except: 
             print(traceback.format_exc())
