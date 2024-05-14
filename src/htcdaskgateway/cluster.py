@@ -44,7 +44,7 @@ class HTCGatewayCluster(GatewayCluster):
 
         self.status = "closed"
     
-    def scale(self, n):
+    def scale(self, n, **kwargs):
         """Scale the cluster to ``n`` workers.
         Parameters
         ----------
