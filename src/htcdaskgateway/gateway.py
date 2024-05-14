@@ -59,6 +59,7 @@ class HTCGateway(Gateway):
             asynchronous=self.asynchronous,
             loop=self.loop,
             shutdown_on_close=shutdown_on_close,
+            cluster_options = cluster_options,
             **kwargs,
         )
 

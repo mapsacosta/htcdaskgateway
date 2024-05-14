@@ -23,6 +23,17 @@ class HTCGatewayCluster(GatewayCluster):
     def __init__(self, **kwargs):
         self.scheduler_proxy_ip = kwargs.pop('', '131.225.218.222')
         self.batchWorkerJobs = []
+        self.defaultImage = 'coffeateam/coffea-dask-almalinux8:2024.4.0-py3.10'
+        self.cluster_options = kwargs.get('cluster_options')
+        
+        #set default image if the image is not specified by user
+        if not kwargs.get('image') and (not self.cluster_options or not self.cluster_options.image):
+            kwargs['image'] = self.defaultImage
+            print("Selected Image: ", kwargs['image'])
+            self.condor_image = self.defaultImage
+        else:
+            self.condor_image = kwargs.get('image')
+        
         super().__init__(**kwargs)
    
     # We only want to override what's strictly necessary, scaling and adapting are the most important ones
@@ -69,8 +80,11 @@ class HTCGatewayCluster(GatewayCluster):
         condor_logdir = f"{tmproot}/condor"
         credentials_dir = f"{tmproot}/dask-credentials"
         worker_space_dir = f"{tmproot}/dask-worker-space"
-        image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux8:2024.4.0-py3.10"
-        logger.info(" Using worker image: "+image_name)
+        
+        image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/" + self.condor_image
+        
+        logger.info("Creating with image " + image_name)
+
         os.makedirs(tmproot, exist_ok=True)
         os.makedirs(condor_logdir, exist_ok=True)
         os.makedirs(credentials_dir, exist_ok=True)
