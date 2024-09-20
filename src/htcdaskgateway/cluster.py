@@ -74,6 +74,7 @@ class HTCGatewayCluster(GatewayCluster):
     
     def scale_batch_workers(self, n):
         username = pwd.getpwuid( os.getuid() )[ 0 ]
+        x509_file = f"x509up_u{os.getuid()}"
         security = self.security
         cluster_name = self.name
         tmproot = f"/uscmst1b_scratch/lpc1/3DayLifetime/{username}/{cluster_name}"
@@ -136,6 +137,8 @@ export APPTAINERENV_DASK_GATEWAY_API_TOKEN=/etc/dask-credentials/api-token
 
 worker_space_dir=${PWD}/dask-worker-space/$2
 mkdir $worker_space_dir
+
+cp """+x509_file+""" $worker_space_dir
 
 /cvmfs/oasis.opensciencegrid.org/mis/apptainer/current/bin/apptainer exec -B ${worker_space_dir}:/srv/ -B dask-credentials:/etc/dask-credentials """+image_name+""" \
 dask worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /etc/dask-credentials/dask.crt --tls-key /etc/dask-credentials/dask.pem --worker-port 10000:10070 --no-nanny --local-directory /srv --scheduler-sni daskgateway-"""+cluster_name+""" --nthreads 1 tls://"""+self.scheduler_proxy_ip+""":80"""
