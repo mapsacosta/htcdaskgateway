@@ -23,7 +23,7 @@ class HTCGatewayCluster(GatewayCluster):
     def __init__(self, **kwargs):
         self.scheduler_proxy_ip = kwargs.pop('', '131.225.218.222')
         self.batchWorkerJobs = []
-        self.defaultImage = 'coffeateam/coffea-dask-almalinux8:2024.4.0-py3.10'
+        self.defaultImage = 'coffeateam/coffea-base-almalinux8:0.7.22-py3.10'
         self.cluster_options = kwargs.get('cluster_options')
         
         #set default image if the image is not specified by user
