@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="htcdaskgateway",
-    version="0.1.18",
+    version="0.1.19",
     author="Maria P. Acosta F./Fermilab EAF project",
     author_email="macosta@fnal.gov",
     description="Launches a Dask Gateway cluster in K8s and joins HTCondor workers to it",
