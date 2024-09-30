@@ -39,7 +39,7 @@ class HTCGatewayCluster(GatewayCluster):
             print("Selected Image: ", kwargs['image'])
             self.condor_image = kwargs.get('image')
             
-        if "coffeateam" not in self.condor_image:
+        if self.image_prefix is not 'registry.hub.docker.com':
             kwargs['image'] = self.image_prefix + "/" + self.condor_image
 
         dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + self.image_prefix + "/" + self.condor_image + "\" ]" 
