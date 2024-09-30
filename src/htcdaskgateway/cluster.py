@@ -25,6 +25,10 @@ class HTCGatewayCluster(GatewayCluster):
         self.batchWorkerJobs = []
         self.defaultImage = 'coffeateam/coffea-base-almalinux8:0.7.22-py3.10'
         self.cluster_options = kwargs.get('cluster_options')
+        if 'image_registry' in kwargs:
+            self.image_prefix = kwargs.pop('image_registry')
+        else:
+            self.image_prefix = 'registry.hub.docker.com'
         
         #set default image if the image is not specified by user
         if not kwargs.get('image') and (not self.cluster_options or not self.cluster_options.image):
@@ -32,8 +36,16 @@ class HTCGatewayCluster(GatewayCluster):
             print("Selected Image: ", kwargs['image'])
             self.condor_image = self.defaultImage
         else:
+            print("Selected Image: ", kwargs['image'])
             self.condor_image = kwargs.get('image')
-        
+            
+        if "coffeateam" not in self.condor_image:
+            kwargs['image'] = self.image_prefix + "/" + self.condor_image
+
+        dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + self.image_prefix + "/" + self.condor_image + "\" ]" 
+        if os.system(dir_command):
+            sys.exit("Image not allowed. Images must be from /cvmfs/unpacked.cern.ch")
+
         super().__init__(**kwargs)
    
     # We only want to override what's strictly necessary, scaling and adapting are the most important ones
@@ -81,8 +93,8 @@ class HTCGatewayCluster(GatewayCluster):
         condor_logdir = f"{tmproot}/condor"
         credentials_dir = f"{tmproot}/dask-credentials"
         worker_space_dir = f"{tmproot}/dask-worker-space"
-        
-        image_name = f"/cvmfs/unpacked.cern.ch/registry.hub.docker.com/" + self.condor_image
+
+        image_name = "/cvmfs/unpacked.cern.ch/" + self.image_prefix + "/" + self.condor_image
         
         logger.info("Creating with image " + image_name)
 
