@@ -20,15 +20,12 @@ logger = logging.getLogger("htcdaskgateway.GatewayCluster")
 
 class HTCGatewayCluster(GatewayCluster):
     
-    def __init__(self, **kwargs):
+    def __init__(self, image_registry="registry.hub.docker.com", **kwargs):
         self.scheduler_proxy_ip = kwargs.pop('', '131.225.218.222')
         self.batchWorkerJobs = []
         self.defaultImage = 'coffeateam/coffea-base-almalinux8:0.7.22-py3.10'
         self.cluster_options = kwargs.get('cluster_options')
-        if 'image_registry' in kwargs:
-            self.image_prefix = kwargs.pop('image_registry')
-        else:
-            self.image_prefix = 'registry.hub.docker.com'
+        self.image_registry = image_registry
         
         #set default image if the image is not specified by user
         if not kwargs.get('image') and (not self.cluster_options or not self.cluster_options.image):
@@ -39,10 +36,9 @@ class HTCGatewayCluster(GatewayCluster):
             print("Selected Image: ", kwargs['image'])
             self.condor_image = kwargs.get('image')
             
-        if self.image_prefix is not 'registry.hub.docker.com':
-            kwargs['image'] = self.image_prefix + "/" + self.condor_image
+        kwargs['image'] = self.image_registry + "/" + self.condor_image
 
-        dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + self.image_prefix + "/" + self.condor_image + "\" ]" 
+        dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + self.image_registry + "/" + self.condor_image + "\" ]" 
         if os.system(dir_command):
             sys.exit("Image not allowed. Images must be from /cvmfs/unpacked.cern.ch")
 
@@ -94,7 +90,7 @@ class HTCGatewayCluster(GatewayCluster):
         credentials_dir = f"{tmproot}/dask-credentials"
         worker_space_dir = f"{tmproot}/dask-worker-space"
 
-        image_name = "/cvmfs/unpacked.cern.ch/" + self.image_prefix + "/" + self.condor_image
+        image_name = "/cvmfs/unpacked.cern.ch/" + self.image_registry + "/" + self.condor_image
         
         logger.info("Creating with image " + image_name)
 
