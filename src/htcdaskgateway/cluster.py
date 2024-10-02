@@ -30,10 +30,10 @@ class HTCGatewayCluster(GatewayCluster):
         #set default image if the image is not specified by user
         if not kwargs.get('image') and (not self.cluster_options or not self.cluster_options.image):
             kwargs['image'] = self.defaultImage
-            print("Selected Image: ", kwargs['image'])
+            print("Apptainer_image: ", kwargs['image'])
             self.condor_image = self.defaultImage
         else:
-            print("Selected Image: ", kwargs['image'])
+            print("Apptainer_image: ", kwargs['image'])
             self.condor_image = kwargs.get('image')
             
         kwargs['image'] = self.image_registry + "/" + self.condor_image
