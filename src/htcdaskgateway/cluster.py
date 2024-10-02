@@ -31,14 +31,14 @@ class HTCGatewayCluster(GatewayCluster):
         if not kwargs.get('image') and (not self.cluster_options or not self.cluster_options.image):
             kwargs['image'] = self.defaultImage
             print("Apptainer_image: ", kwargs['image'])
-            self.condor_image = self.defaultImage
+            self.apptainer_image = self.defaultImage
         else:
             print("Apptainer_image: ", kwargs['image'])
-            self.condor_image = kwargs.get('image')
+            self.apptainer_image = kwargs.get('image')
             
-        kwargs['image'] = self.image_registry + "/" + self.condor_image
+        kwargs['image'] = self.image_registry + "/" + self.apptainer_image
 
-        dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + self.image_registry + "/" + self.condor_image + "\" ]" 
+        dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + self.image_registry + "/" + self.apptainer_image + "\" ]" 
         if os.system(dir_command):
             sys.exit("Image not allowed. Images must be from /cvmfs/unpacked.cern.ch")
 
@@ -90,7 +90,7 @@ class HTCGatewayCluster(GatewayCluster):
         credentials_dir = f"{tmproot}/dask-credentials"
         worker_space_dir = f"{tmproot}/dask-worker-space"
 
-        image_name = "/cvmfs/unpacked.cern.ch/" + self.image_registry + "/" + self.condor_image
+        image_name = "/cvmfs/unpacked.cern.ch/" + self.image_registry + "/" + self.apptainer_image
         
         logger.info("Creating with image " + image_name)
 
