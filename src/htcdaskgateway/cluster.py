@@ -130,6 +130,7 @@ request_cpus = 4
 request_memory = 8GB
 should_transfer_files = yes
 transfer_input_files = """+credentials_dir+""", """+worker_space_dir+""" , """+condor_logdir+"""
+when_to_transfer_output = ON_EXIT_OR_EVICT
 Queue """+str(n)+""
     
         with open(f"{tmproot}/htcdask_submitfile.jdl", 'w+') as f:
