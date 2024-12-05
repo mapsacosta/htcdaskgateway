@@ -128,6 +128,8 @@ error = condor/htcdask-worker$(Cluster)_$(Process).err
 log = condor/htcdask-worker$(Cluster)_$(Process).log
 request_cpus = 4
 request_memory = 8GB
++isDaskJob = True
+requirements = (isDaskNode == True)
 should_transfer_files = yes
 transfer_input_files = """+credentials_dir+""", """+worker_space_dir+""" , """+condor_logdir+"""
 when_to_transfer_output = ON_EXIT_OR_EVICT
