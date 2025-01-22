@@ -19,28 +19,46 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger("htcdaskgateway.GatewayCluster")
 
 class HTCGatewayCluster(GatewayCluster):
-    
+
     def __init__(self, image_registry="registry.hub.docker.com", **kwargs):
         self.scheduler_proxy_ip = kwargs.pop('', '131.225.218.222')
         self.batchWorkerJobs = []
-        self.defaultImage = 'coffeateam/coffea-base-almalinux8:0.7.22-py3.10'
-        self.cluster_options = kwargs.get('cluster_options')
         self.image_registry = image_registry
+        self.defaultImage = 'coffeateam/coffea-base-almalinux8:0.7.22-py3.10'
+        self.defaultWorker_memory = 4
+        self.defaultWorker_cores = 2
         
-        #set default image if the image is not specified by user
-        if not kwargs.get('image') and (not self.cluster_options or not self.cluster_options.image):
-            kwargs['image'] = self.defaultImage
-            print("Apptainer_image: ", kwargs['image'])
-            self.apptainer_image = self.defaultImage
-        else:
-            print("Apptainer_image: ", kwargs['image'])
+        if kwargs.get('image'):
             self.apptainer_image = kwargs.get('image')
-            
+            print("Apptainer_image: ", self.apptainer_image)
+        else:
+            kwargs['image'] = self.defaultImage
+            self.apptainer_image = self.defaultImage
+            print("Apptainer_image: ", self.apptainer_image)
+                
+        if kwargs.get('worker_memory'):
+            self.worker_memory = kwargs.get('worker_memory')
+            print("Worker_memory: ", self.worker_memory, "GB")
+        else:
+            kwargs['worker_memory'] = self.defaultWorker_memory
+            self.worker_memory = self.defaultWorker_memory
+            print("Worker_memory: ", self.worker_memory, "GB")
+
+        if kwargs.get('worker_cores'):
+            self.worker_cores = kwargs.get('worker_cores')
+            print("worker_cores: ", self.worker_cores)
+        else:
+            kwargs['worker_cores'] = self.defaultWorker_cores
+            self.worker_cores = self.defaultWorker_cores
+            print("worker_cores: ", self.worker_cores)
+
+        print("Image_registry: ", self.image_registry)
+        
         kwargs['image'] = self.image_registry + "/" + self.apptainer_image
 
         dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + self.image_registry + "/" + self.apptainer_image + "\" ]" 
         if os.system(dir_command):
-            sys.exit("Image not allowed. Images must be from /cvmfs/unpacked.cern.ch")
+            sys.exit("Image not allowed. Images must be from /cvmfs/unpacked.cern.ch. Check for typos or check cvmfs using ls /cvmfs/unpacked.cern.ch/")
 
         super().__init__(**kwargs)
    
@@ -91,8 +109,8 @@ class HTCGatewayCluster(GatewayCluster):
         worker_space_dir = f"{tmproot}/dask-worker-space"
 
         image_name = "/cvmfs/unpacked.cern.ch/" + self.image_registry + "/" + self.apptainer_image
-        
-        logger.info("Creating with image " + image_name)
+        worker_mem = str(self.worker_memory) + "GB"
+        num_cores = str(self.worker_cores)
 
         os.makedirs(tmproot, exist_ok=True)
         os.makedirs(condor_logdir, exist_ok=True)
@@ -126,8 +144,8 @@ arguments = """+cluster_name+""" htcdask-worker_$(Cluster)_$(Process)
 output = condor/htcdask-worker$(Cluster)_$(Process).out
 error = condor/htcdask-worker$(Cluster)_$(Process).err
 log = condor/htcdask-worker$(Cluster)_$(Process).log
-request_cpus = 4
-request_memory = 8GB
+request_cpus = """+num_cores+"""
+request_memory = """+worker_mem+"""
 +isDaskJob = True
 requirements = (isDaskNode == True)
 should_transfer_files = yes
