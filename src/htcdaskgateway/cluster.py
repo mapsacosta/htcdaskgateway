@@ -20,43 +20,25 @@ logger = logging.getLogger("htcdaskgateway.GatewayCluster")
 
 class HTCGatewayCluster(GatewayCluster):
 
-    def __init__(self, image_registry="registry.hub.docker.com", **kwargs):
+    def __init__(self, image_registry="registry.hub.docker.com", apptainer_image='coffeateam/coffea-base-almalinux8:0.7.22-py3.10',
+                 worker_memory=4, worker_cores=2, **kwargs):
         self.scheduler_proxy_ip = kwargs.pop('', '131.225.218.222')
         self.batchWorkerJobs = []
         self.image_registry = image_registry
-        self.defaultImage = 'coffeateam/coffea-base-almalinux8:0.7.22-py3.10'
-        self.defaultWorker_memory = 4
-        self.defaultWorker_cores = 2
-        
-        if kwargs.get('image'):
-            self.apptainer_image = kwargs.get('image')
-            print("Apptainer_image: ", self.apptainer_image)
-        else:
-            kwargs['image'] = self.defaultImage
-            self.apptainer_image = self.defaultImage
-            print("Apptainer_image: ", self.apptainer_image)
-                
-        if kwargs.get('worker_memory'):
-            self.worker_memory = kwargs.get('worker_memory')
-            print("Worker_memory: ", self.worker_memory, "GB")
-        else:
-            kwargs['worker_memory'] = self.defaultWorker_memory
-            self.worker_memory = self.defaultWorker_memory
-            print("Worker_memory: ", self.worker_memory, "GB")
+        self.apptainer_image = apptainer_image
+        self.worker_memory = worker_memory
+        self.worker_cores = worker_cores
 
-        if kwargs.get('worker_cores'):
-            self.worker_cores = kwargs.get('worker_cores')
-            print("worker_cores: ", self.worker_cores)
-        else:
-            kwargs['worker_cores'] = self.defaultWorker_cores
-            self.worker_cores = self.defaultWorker_cores
-            print("worker_cores: ", self.worker_cores)
-
-        print("Image_registry: ", self.image_registry)
-        
         kwargs['image'] = self.image_registry + "/" + self.apptainer_image
+        kwargs['worker_memory'] = self.worker_memory
+        kwargs['worker_cores'] = self.worker_cores
+        
+        print("Apptainer_image: ", self.apptainer_image)
+        print("Worker_memory: ", kwargs['worker_memory'], "GB")
+        print("worker_cores: ", kwargs['worker_cores'])
+        print("Image_registry: ", self.image_registry)
 
-        dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + self.image_registry + "/" + self.apptainer_image + "\" ]" 
+        dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + kwargs['image'] + "\" ]" 
         if os.system(dir_command):
             sys.exit("Image not allowed. Images must be from /cvmfs/unpacked.cern.ch. Check for typos or check cvmfs using ls /cvmfs/unpacked.cern.ch/")
 
