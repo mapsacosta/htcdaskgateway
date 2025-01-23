@@ -66,6 +66,9 @@ class HTCGatewayCluster(GatewayCluster):
         #print("In the future, I will allow for Kubernetes workers as well"
         worker_type = 'htcondor'
         logger.warn(" worker_type: "+str(worker_type))
+        voms_output = subprocess.check_output(["voms-proxy-info"], text=True)
+        if "0:00:00" in voms_output:
+            sys.exit("Proxy is expired, renew your proxy and try again.")
         try:
             if 'condor' in worker_type:
                 self.batchWorkerJobs = []
@@ -77,7 +80,7 @@ class HTCGatewayCluster(GatewayCluster):
 
         except: 
             print(traceback.format_exc())
-            logger.error("A problem has occurred while scaling via HTCondor, please check your proxy credentials")
+            logger.error("Unable to scale via HTCondor.")
             return False
     
     def scale_batch_workers(self, n):
