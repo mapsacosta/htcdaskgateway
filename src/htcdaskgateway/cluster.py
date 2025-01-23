@@ -26,6 +26,10 @@ class HTCGatewayCluster(GatewayCluster):
         self.defaultImage = 'coffeateam/coffea-base-almalinux8:0.7.22-py3.10'
         self.cluster_options = kwargs.get('cluster_options')
         self.image_registry = image_registry
+
+        voms_output = subprocess.check_output(["voms-proxy-info"], text=True)
+        if "timeleft  : 0:00:00" in voms_output:
+            sys.exit("Proxy is expired, renew your proxy and try again.")
         
         #set default image if the image is not specified by user
         if not kwargs.get('image') and (not self.cluster_options or not self.cluster_options.image):
@@ -66,9 +70,6 @@ class HTCGatewayCluster(GatewayCluster):
         #print("In the future, I will allow for Kubernetes workers as well"
         worker_type = 'htcondor'
         logger.warn(" worker_type: "+str(worker_type))
-        voms_output = subprocess.check_output(["voms-proxy-info"], text=True)
-        if "0:00:00" in voms_output:
-            sys.exit("Proxy is expired, renew your proxy and try again.")
         try:
             if 'condor' in worker_type:
                 self.batchWorkerJobs = []
