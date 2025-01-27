@@ -25,9 +25,20 @@ class HTCGatewayCluster(GatewayCluster):
         self.scheduler_proxy_ip = kwargs.pop('', '131.225.218.222')
         self.batchWorkerJobs = []
         self.image_registry = image_registry
+        self.cluster_options = kwargs.get('cluster_options')
         self.apptainer_image = apptainer_image
         self.worker_memory = worker_memory
         self.worker_cores = worker_cores
+
+        if self.cluster_options:
+            if 'worker_memory' in self.cluster_options:
+                self.worker_memory = self.cluster_options.worker_memory
+                
+            if 'worker_cores' in self.cluster_options:
+                self.worker_cores = self.cluster_options.worker_cores
+                
+            if 'image' in self.cluster_options:
+                self.apptainer_image = self.cluster_options.image
 
         kwargs['image'] = self.image_registry + "/" + self.apptainer_image
         kwargs['worker_memory'] = self.worker_memory
