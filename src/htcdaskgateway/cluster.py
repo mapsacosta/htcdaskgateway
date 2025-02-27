@@ -18,6 +18,46 @@ from dask_gateway import GatewayCluster
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger("htcdaskgateway.GatewayCluster")
 
+def jdl_conversion(w_mem,w_cores):
+    
+    try:
+        if type(w_mem) == str:
+            print("ERROR: ")
+            raise TypeError(f"Invalid type for worker memory. worker_memory={w_mem} not a float or convertable to a float. Please run cluster.shutdown().")
+
+        if type(w_cores) == str:
+            print("ERROR: ")
+            raise TypeError(f"Invalid type for worker cores. worker_cores={w_cores} not an int. Please run cluster.shutdown().")
+        
+        work_mem = str(w_mem)
+        test_mem = float(work_mem)
+
+        work_mem = work_mem + "GB"
+        
+        n_cores = str(w_cores)
+        test_cores = int(n_cores)
+
+        if w_mem < 1 or w_mem > 8:
+            raise ValueError(f"Invalid worker memory. worker_memory={w_mem} not in the range 1-8. Please run cluster.shutdown().")
+
+        if w_cores < 1 or w_cores > 4:
+            raise ValueError(f"Invalid number of worker cores. worker_cores={w_cores} not in the range 1-4. Please run cluster.shutdown().")
+
+        return work_mem, n_cores
+
+    except ValueError as e:
+        print("ERROR: ")
+        if "invalid literal" in str(e):
+            if str(e).startswith("invalid literal for int"):
+                print(f"Invalid type for number of worker cores. worker_cores={w_cores} not an int. Please run cluster.shutdown().")
+            else:
+                print(f"Invalid type for worker memory. worker_memory={w_mem} not a float or convertable to a float. Please run cluster.shutdown().")
+        else:
+            print(e)
+
+        return None, None
+    
+
 class HTCGatewayCluster(GatewayCluster):
 
     def __init__(self, image_registry="registry.hub.docker.com", apptainer_image='coffeateam/coffea-base-almalinux8:0.7.22-py3.10',
@@ -46,13 +86,13 @@ class HTCGatewayCluster(GatewayCluster):
         
         print("Apptainer_image: ", self.apptainer_image)
         print("Worker_memory: ", kwargs['worker_memory'], "GB")
-        print("worker_cores: ", kwargs['worker_cores'])
+        print("Worker_cores: ", kwargs['worker_cores'])
         print("Image_registry: ", self.image_registry)
 
         dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + kwargs['image'] + "\" ]" 
         if os.system(dir_command):
             sys.exit("Image not allowed. Images must be from /cvmfs/unpacked.cern.ch. Check for typos or check cvmfs using ls /cvmfs/unpacked.cern.ch/")
-
+        
         super().__init__(**kwargs)
    
     # We only want to override what's strictly necessary, scaling and adapting are the most important ones
@@ -100,10 +140,14 @@ class HTCGatewayCluster(GatewayCluster):
         condor_logdir = f"{tmproot}/condor"
         credentials_dir = f"{tmproot}/dask-credentials"
         worker_space_dir = f"{tmproot}/dask-worker-space"
+                
+        worker_mem, num_cores = jdl_conversion(self.worker_memory,self.worker_cores)
+
+        if worker_mem == None or num_cores == None:
+            sys.exit("See memory or core errors. Please run cluster.shutdown().")
 
         image_name = "/cvmfs/unpacked.cern.ch/" + self.image_registry + "/" + self.apptainer_image
-        worker_mem = str(self.worker_memory) + "GB"
-        num_cores = str(self.worker_cores)
+        
 
         os.makedirs(tmproot, exist_ok=True)
         os.makedirs(condor_logdir, exist_ok=True)
