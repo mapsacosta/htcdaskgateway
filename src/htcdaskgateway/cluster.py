@@ -59,6 +59,29 @@ def jdl_conversion(w_mem,w_cores):
     
 
 class HTCGatewayCluster(GatewayCluster):
+    """
+    A class for scheduler and worker configuration and connection. 
+        
+    Attributes
+    -----------
+    image_registry: str 
+        Image registry for chosen image as exemplified here: {registry}/{image_repo}/{image_name}. 
+        Default is registry.hub.docker.com. (Optional for docker images)  
+    apptainer_image: str 
+        Image name from a chosen repo as exemplified here: {registry}/{image_repo}/{image_name}. 
+        Default is coffeateam/coffea-base-almalinux8:0.7.22-py3.10. (Optional for notebooks with 
+        default coffea install 0.7.22)
+    worker_memory: float
+        Desired memory for scheduler/workers in GB. Must be in range 1-8. Individual worker memory 
+        is found by dividing worker_memory by worker_cores. Default is 4 GB. (Optional)
+    worker_cores: int
+        Desired number of cores for scheduler/workers. Must be in range 1-4. Default is 2 cores. 
+        (Optional)
+
+    Returns
+    --------
+    Instantiates the HTCGatewayCluster
+    """
 
     def __init__(self, image_registry="registry.hub.docker.com", apptainer_image='coffeateam/coffea-base-almalinux8:0.7.22-py3.10',
                  worker_memory=4, worker_cores=2, **kwargs):
@@ -92,7 +115,7 @@ class HTCGatewayCluster(GatewayCluster):
         dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + kwargs['image'] + "\" ]" 
         if os.system(dir_command):
             sys.exit("Image not allowed. Images must be from /cvmfs/unpacked.cern.ch. Check for typos or check cvmfs using ls /cvmfs/unpacked.cern.ch/")
-        
+
         super().__init__(**kwargs)
    
     # We only want to override what's strictly necessary, scaling and adapting are the most important ones
