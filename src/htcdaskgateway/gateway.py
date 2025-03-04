@@ -17,7 +17,6 @@ import yaml
  
 from distributed.core import Status
 from dask_gateway import Gateway
-#from .options import Options
 from .cluster import HTCGatewayCluster
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)

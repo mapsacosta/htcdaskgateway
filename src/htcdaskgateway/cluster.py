@@ -18,46 +18,6 @@ from dask_gateway import GatewayCluster
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger("htcdaskgateway.GatewayCluster")
 
-def jdl_conversion(w_mem,w_cores):
-    
-    try:
-        if type(w_mem) == str:
-            print("ERROR: ")
-            raise TypeError(f"Invalid type for worker memory. worker_memory={w_mem} not a float or convertable to a float. Please run cluster.shutdown().")
-
-        if type(w_cores) == str:
-            print("ERROR: ")
-            raise TypeError(f"Invalid type for worker cores. worker_cores={w_cores} not an int. Please run cluster.shutdown().")
-        
-        work_mem = str(w_mem)
-        test_mem = float(work_mem)
-
-        work_mem = work_mem + "GB"
-        
-        n_cores = str(w_cores)
-        test_cores = int(n_cores)
-
-        if w_mem < 1 or w_mem > 8:
-            raise ValueError(f"Invalid worker memory. worker_memory={w_mem} not in the range 1-8. Please run cluster.shutdown().")
-
-        if w_cores < 1 or w_cores > 4:
-            raise ValueError(f"Invalid number of worker cores. worker_cores={w_cores} not in the range 1-4. Please run cluster.shutdown().")
-
-        return work_mem, n_cores
-
-    except ValueError as e:
-        print("ERROR: ")
-        if "invalid literal" in str(e):
-            if str(e).startswith("invalid literal for int"):
-                print(f"Invalid type for number of worker cores. worker_cores={w_cores} not an int. Please run cluster.shutdown().")
-            else:
-                print(f"Invalid type for worker memory. worker_memory={w_mem} not a float or convertable to a float. Please run cluster.shutdown().")
-        else:
-            print(e)
-
-        return None, None
-    
-
 class HTCGatewayCluster(GatewayCluster):
     """
     A class for scheduler and worker configuration and connection. 
@@ -83,15 +43,15 @@ class HTCGatewayCluster(GatewayCluster):
     Instantiates the HTCGatewayCluster
     """
 
-    def __init__(self, image_registry="registry.hub.docker.com", apptainer_image='coffeateam/coffea-base-almalinux8:0.7.22-py3.10',
-                 worker_memory=4, worker_cores=2, **kwargs):
+    def __init__(self, image_registry="registry.hub.docker.com", apptainer_image='coffeateam/coffea-base-almalinux8:0.7.22-py3.10', 
+                 **kwargs):
         self.scheduler_proxy_ip = kwargs.pop('', '131.225.218.222')
         self.batchWorkerJobs = []
         self.image_registry = image_registry
         self.cluster_options = kwargs.get('cluster_options')
         self.apptainer_image = apptainer_image
-        self.worker_memory = worker_memory
-        self.worker_cores = worker_cores
+        self.worker_memory = None
+        self.worker_cores = None
 
         if self.cluster_options:
             if 'worker_memory' in self.cluster_options:
@@ -104,13 +64,18 @@ class HTCGatewayCluster(GatewayCluster):
                 self.apptainer_image = self.cluster_options.image
 
         kwargs['image'] = self.image_registry + "/" + self.apptainer_image
-        kwargs['worker_memory'] = self.worker_memory
-        kwargs['worker_cores'] = self.worker_cores
+        
         
         print("Apptainer_image: ", self.apptainer_image)
-        print("Worker_memory: ", kwargs['worker_memory'], "GB")
-        print("Worker_cores: ", kwargs['worker_cores'])
         print("Image_registry: ", self.image_registry)
+
+        if 'worker_memory' in kwargs:
+            self.worker_memory = kwargs['worker_memory']
+            print("Worker_memory: ", self.worker_memory, "GB")
+        
+        if 'worker_cores' in kwargs:
+            self.worker_cores = kwargs['worker_cores']
+            print("Worker_cores: ", self.worker_cores)
 
         dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + kwargs['image'] + "\" ]" 
         if os.system(dir_command):
@@ -163,14 +128,22 @@ class HTCGatewayCluster(GatewayCluster):
         condor_logdir = f"{tmproot}/condor"
         credentials_dir = f"{tmproot}/dask-credentials"
         worker_space_dir = f"{tmproot}/dask-worker-space"
-                
-        worker_mem, num_cores = jdl_conversion(self.worker_memory,self.worker_cores)
-
-        if worker_mem == None or num_cores == None:
-            sys.exit("See memory or core errors. Please run cluster.shutdown().")
 
         image_name = "/cvmfs/unpacked.cern.ch/" + self.image_registry + "/" + self.apptainer_image
-        
+
+        if self.worker_memory:
+            worker_mem = str(self.worker_memory) + "GB"
+        else:
+            options = self.gateway.cluster_options()
+            worker_mem = str(options.worker_memory) + "GB"
+            print("Using worker_memory Default: ", worker_mem)
+
+        if self.worker_cores:
+            num_cores = str(self.worker_cores)
+        else:
+            options = self.gateway.cluster_options()
+            num_cores = str(options.worker_cores)
+            print("Using worker_cores Default: ", num_cores, "cores")
 
         os.makedirs(tmproot, exist_ok=True)
         os.makedirs(condor_logdir, exist_ok=True)
