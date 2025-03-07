@@ -71,11 +71,9 @@ class HTCGatewayCluster(GatewayCluster):
 
         if 'worker_memory' in kwargs:
             self.worker_memory = kwargs['worker_memory']
-            print("Worker_memory: ", self.worker_memory, "GB")
         
         if 'worker_cores' in kwargs:
             self.worker_cores = kwargs['worker_cores']
-            print("Worker_cores: ", self.worker_cores)
 
         dir_command = "[ -d \"/cvmfs/unpacked.cern.ch/" + kwargs['image'] + "\" ]" 
         if os.system(dir_command):
@@ -132,18 +130,20 @@ class HTCGatewayCluster(GatewayCluster):
         image_name = "/cvmfs/unpacked.cern.ch/" + self.image_registry + "/" + self.apptainer_image
 
         if self.worker_memory:
-            worker_mem = str(self.worker_memory) + "GB"
+            worker_mem = str(self.worker_memory) + " GB"
+            print("Using Specified worker_memory: ", worker_mem)
         else:
             options = self.gateway.cluster_options()
-            worker_mem = str(options.worker_memory) + "GB"
-            print("Using worker_memory Default: ", worker_mem)
+            worker_mem = str(options.worker_memory) + " GB"
+            print("Using Default worker_memory: ", worker_mem)
 
         if self.worker_cores:
             num_cores = str(self.worker_cores)
+            print("Using Specified worker_cores: ", num_cores, "cores")
         else:
             options = self.gateway.cluster_options()
             num_cores = str(options.worker_cores)
-            print("Using worker_cores Default: ", num_cores, "cores")
+            print("Using Default worker_cores: ", num_cores, "cores")
 
         os.makedirs(tmproot, exist_ok=True)
         os.makedirs(condor_logdir, exist_ok=True)
