@@ -17,7 +17,6 @@ import yaml
  
 from distributed.core import Status
 from dask_gateway import Gateway
-#from .options import Options
 from .cluster import HTCGatewayCluster
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -31,37 +30,62 @@ class HTCGateway(Gateway):
         super().__init__(address, auth="jupyterhub", **kwargs)
     
     def new_cluster(self, cluster_options=None, shutdown_on_close=True, **kwargs):
-        """Submit a new cluster to the gateway, and wait for it to be started.
+        """
+        Submit a new cluster to the gateway, and wait for it to be started.
         Same as calling ``submit`` and ``connect`` in one go.
         Parameters
         ----------
         cluster_options : dask_gateway.options.Options, optional
             An ``Options`` object describing the desired cluster configuration.
+            
+            Usage: options = gateway.cluster_options()
+            Opens a gui to configure the options object with allowed available options.
+            
+            If ``cluster_options`` is provided, these are applied afterwards as overrides. Available 
+            options are specific to each deployment of dask-gateway, see **kwargs.
         shutdown_on_close : bool, optional
             If True (default), the cluster will be automatically shutdown on
             close. Set to False to have cluster persist until explicitly
             shutdown.
         **kwargs :
-            Additional cluster configuration options. If ``cluster_options`` is
-            provided, these are applied afterwards as overrides. Available
-            options are specific to each deployment of dask-gateway, see
-            ``cluster_options`` for more information.
+            Additional cluster configuration options.
+
+            image_registry: str
+                Image registry for chosen image as exemplified here: {registry}/{image_repo}/{image_name}.
+                Default is registry.hub.docker.com. (Optional for docker images) 
+            apptainer_image: str
+                Image name from a chosen repo as exemplified here: {registry}/{image_repo}/{image_name}. 
+                Default is coffeateam/coffea-base-almalinux8:0.7.22-py3.10. (Optional for notebooks with 
+                default coffea install 0.7.22)
+            worker_memory: float
+                Desired memory for scheduler/workers in GB. Must be in range 1-8. Individual worker memory 
+                is found by dividing worker_memory by worker_cores. Default is 4 GB. (Optional)
+            worker_cores: int
+                Desired number of cores for scheduler/workers. Must be in range 1-4. Default is 2 cores. 
+                (Optional)
+            
         Returns
         -------
         cluster : GatewayCluster
         """
         logger.info(" Creating HTCGatewayCluster ")
-        return HTCGatewayCluster(
-            address=self.address,
-            proxy_address=self.proxy_address,
-            public_address='https://dask-gateway.fnal.gov',
-            auth=self.auth,
-            asynchronous=self.asynchronous,
-            loop=self.loop,
-            shutdown_on_close=shutdown_on_close,
-            cluster_options = cluster_options,
-            **kwargs,
-        )
+
+        try:
+            return HTCGatewayCluster(
+                address=self.address,
+                proxy_address=self.proxy_address,
+                public_address='https://dask-gateway.fnal.gov',
+                auth=self.auth,
+                asynchronous=self.asynchronous,
+                loop=self.loop,
+                shutdown_on_close=shutdown_on_close,
+                cluster_options = cluster_options,
+                **kwargs,
+            )
+        except Exception as e:
+            msg = str(e) + ". See usage: " + '\n' + HTCGateway.new_cluster.__doc__
+            raise Exception(msg) from e
+            
 
     def scale_cluster(self, cluster_name, n, worker_type, **kwargs):
         """Scale a cluster to n workers.
