@@ -48,6 +48,7 @@ class HTCGatewayCluster(GatewayCluster):
         self.scheduler_proxy_ip = kwargs.pop('', '131.225.218.222')
         self.batchWorkerJobs = []
         self.image_registry = image_registry
+        self.is_shutdown = False
         self.cluster_options = kwargs.get('cluster_options')
         self.apptainer_image = apptainer_image
         self.worker_memory = None
@@ -89,6 +90,10 @@ class HTCGatewayCluster(GatewayCluster):
 
         self.status = "closed"
 
+    def shutdown(self):
+        self.is_shutdown = True
+        super().shutdown()
+
     def scale(self, n, **kwargs):
         """Scale the cluster to ``n`` workers.
         Parameters
@@ -104,6 +109,9 @@ class HTCGatewayCluster(GatewayCluster):
         worker_type = 'htcondor'
         logger.warn(" worker_type: "+str(worker_type))
 
+        if self.is_shutdown:
+            logger.warning("Cluster was shutdown - cannot scale!")
+            return
         current_jobs = sum(x['n_jobs'] for x in self.batchWorkerJobs)
 
         if n == current_jobs:
@@ -124,7 +132,7 @@ class HTCGatewayCluster(GatewayCluster):
                 while to_remove > 0 and self.batchWorkerJobs:
                     cluster = self.batchWorkerJobs[-1]
                     if cluster['n_jobs'] <= to_remove:
-                        # remove whole cluster
+                        # remove whole condor cluster
                         self._destroy_batch_cluster(cluster)
                         self.batchWorkerJobs.pop()
                         to_remove -= cluster['n_jobs']
@@ -273,7 +281,7 @@ dask worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /e
             logger.info("Removed cluster %s: %s", cluster['ClusterId'], result.decode().rstrip())
 
         except Exception as e:
-            logger.error("Failed to remove cluster %s: %s", cluster.get('ClusterId'), exc)
+            logger.error("Failed to remove cluster %s: %s", cluster.get('ClusterId'), e)
 
     def _remove_jobs_in_cluster(self, cluster, n):
         q_cmd = f"condor_q {cluster['ClusterId']} -af ProcId"
@@ -305,7 +313,8 @@ dask worker --name $2 --tls-ca-file /etc/dask-credentials/dask.crt --tls-cert /e
                 result = subprocess.check_output(['sh','-c',cmd], cwd=htc_cluster['Iwd'])
                 logger.info(" "+result.decode().rstrip())
             except:
-                logger.info(" "+result.decode().rstrip())
+                logger.error("Failed to remove HTCondor cluster %s", htc_cluster.get('ClusterId'))
+        self.batchWorkerJobs = []
 
     def adapt(self, minimum=None, maximum=None, active=True, **kwargs):
         """Configure adaptive scaling for the cluster.
