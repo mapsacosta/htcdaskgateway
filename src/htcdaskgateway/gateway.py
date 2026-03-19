@@ -99,9 +99,27 @@ class HTCGateway(Gateway):
         return self.sync(self._scale_cluster, cluster_name, n, **kwargs)
     
     async def _stop_cluster(self, cluster_name):
+        # Find the existing cluster object to trigger its HTCondor shutdown
+        # sequence before deleting via the API.
+        for cluster in list(HTCGatewayCluster._instances):
+            if cluster.name == cluster_name:
+                cluster.is_shutdown = True
+                # Use _stop_internal() rather than _stop_async() directly so
+                # that deduplication and gateway session cleanup are handled
+                # correctly by the parent class.  shutdown=False because we
+                # issue the DELETE ourselves below.
+                await cluster._stop_internal(shutdown=False)
+                break
+        else:
+            logger.warning(
+                "stop_cluster: cluster %s not found in active instances; "
+                "HTCondor jobs may need manual cleanup.",
+                cluster_name,
+            )
+
+        # Delete via API
         url = f"{self.address}/api/v1/clusters/{cluster_name}"
         await self._request("DELETE", url)
-        HTCGatewayCluster.from_name(cluster_name).close(shutdown=True)
 
     def stop_cluster(self, cluster_name, **kwargs):
         """Stop a cluster.
